@@ -1,3 +1,5 @@
+CFLAGS=-DHAVE_ATTR_TEST=0
+
 LLC ?= llc
 CLANG ?= clang
 
@@ -18,11 +20,11 @@ hello_kern.o: hello_kern.c
 		-Wno-unknown-warning-option $(CLANG_ARCH_ARGS) \
 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf $(LLC_FLAGS) -filetype=obj -o $@
 
-hello_bpf: bpf_load.o hello_user.o
-	$(CC) $^ -o $@ /usr/lib64/libbpf.a -lelf -lz
-
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -I. -c $< -o $@
+
+hello_bpf: hello_user.o bpf_load.o
+	$(CC) $^ -o $@ -l:libbpf.a -lelf -lz
 
 clean:
 	rm -f *.o hello_bpf
