@@ -1,9 +1,9 @@
-#Hello BPF
+# Hello BPF
 
 This is a bpf program following examples in kernel samples/bpf/,
 but it can be built out of kernel tree
 
-##Precondition
+## Precondition
 libbpf must be present.
 
 To build and install libbpf
@@ -15,10 +15,10 @@ To build and install libbpf
 libelf/libz, internal dependencies of libbpf, must be also present.
 
 
-##Compile
+## Compile
 make
 
-##Run
+## Run
 sudo ./hello_bpf &
 
 Execute a shell command to see the print, e.g.  ls
