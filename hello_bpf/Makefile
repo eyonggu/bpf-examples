@@ -2,14 +2,24 @@ CFLAGS=-DHAVE_ATTR_TEST=0
 
 LLC ?= llc
 CLANG ?= clang
-
+#Now assume libbpf is compiled from github mirror and installed in STD INC (/usr/include/bpf)
+#NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
 LLC_FLAGS=
+
+linuxhdrs ?=
+
+BPFOBJS = hello_kern.o
+
+COMMONOBJS = ../common/bpf_load.o
+PROG = hello_user
+OBJS = $(COMMONOBJS) $(PROG).o
+LDLIBS = -l:libbpf.a -lelf -lz
 
 .PHONY: all clean
 
-all: hello_bpf hello_kern.o
+all: $(BPFOBJS) $(PROG)
 
-hello_kern.o: hello_kern.c
+$(BPFOBJS): %.o:%.c
 	@echo "  CLANG-bpf " $@
 	$(Q)$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
 		-D__KERNEL__ -D__BPF_TRACING__ \
@@ -20,11 +30,12 @@ hello_kern.o: hello_kern.c
 		-Wno-unknown-warning-option $(CLANG_ARCH_ARGS) \
 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf $(LLC_FLAGS) -filetype=obj -o $@
 
-%.o: %.c
-	$(CC) $(CFLAGS) -I. -c $< -o $@
+#Static Pattern Rules
+$(OBJS): %.o:%.c
+	$(CC) $(CFLAGS) -I../common -c $< -o $@
 
-hello_bpf: hello_user.o bpf_load.o
-	$(CC) $^ -o $@ -l:libbpf.a -lelf -lz
+$(PROG): $(OBJS)
+	$(CC) $^ -o $@ $(LDLIBS)
 
 clean:
-	rm -f *.o hello_bpf
+	rm -f $(BPFOBJS) $(PROG)

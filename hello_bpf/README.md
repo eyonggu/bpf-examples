@@ -12,7 +12,7 @@ To build and install libbpf
 - make
 - make install
 
-libelf/libz, internal dependencies of libbpf, must be also present.
+libelf/libz, internal dependencies of libbpf, must be also installed.
 
 
 ## Compile
@@ -23,3 +23,6 @@ sudo ./hello_bpf &
 
 Execute a shell command to see the print, e.g.  ls
 
+
+## Check bpf object file
+llvm-objdump -D hello_kern.o
