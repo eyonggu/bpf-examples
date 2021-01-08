@@ -42,6 +42,8 @@ int prog_array_fd = -1;
 struct bpf_map_data map_data[MAX_MAPS];
 int map_data_count;
 
+int debug = 1;
+
 static int populate_prog_array(const char *event, int prog_fd)
 {
 	int ind = atoi(event), err;
@@ -544,7 +546,7 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
 		if (get_sec(elf, i, &ehdr, &shname, &shdr, &data))
 			continue;
 
-		if (0) /* helpful for llvm debugging */
+		if (debug) /* helpful for llvm debugging */
 			printf("section %d:%s data %p size %zd link %d flags %d\n",
 			       i, shname, data->d_buf, data->d_size,
 			       shdr.sh_link, (int) shdr.sh_flags);
@@ -561,6 +563,9 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
 			}
 			memcpy(&kern_version, data->d_buf, sizeof(int));
 		} else if (strcmp(shname, "maps") == 0) {
+			if (debug)
+				printf("EYONGGU: %s(): Found maps section: %s\n",
+				       __func__, shname);
 			int j;
 
 			maps_shndx = i;
@@ -568,6 +573,9 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
 			for (j = 0; j < MAX_MAPS; j++)
 				map_data[j].fd = -1;
 		} else if (shdr.sh_type == SHT_SYMTAB) {
+			if (debug)
+				printf("EYONGGU: %s(): Found sh_type: SHT_SYMTAB section,"
+				       "name: %s\n", __func__, shname);
 			strtabidx = shdr.sh_link;
 			symbols = data;
 		}
@@ -604,12 +612,20 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
 			continue;
 
 		if (shdr.sh_type == SHT_REL) {
+			if (debug)
+				printf("EYONGGU: %s(): process SHT_REL section, "
+				       "shname: %s, shdr.sh_info: %u\n",
+				       __func__, shname, shdr.sh_info);
 			struct bpf_insn *insns;
 
 			/* locate prog sec that need map fixup (relocations) */
 			if (get_sec(elf, shdr.sh_info, &ehdr, &shname_prog,
-				    &shdr_prog, &data_prog))
+				    &shdr_prog, &data_prog)) {
+				if (debug)
+					printf("EYONGGU: %s(): located prog sec (sh_info: %u, shname_prog: %s)\n",
+					       __func__, shdr.sh_info, shname_prog);
 				continue;
+			}
 
 			if (shdr_prog.sh_type != SHT_PROGBITS ||
 			    !(shdr_prog.sh_flags & SHF_EXECINSTR))
@@ -644,6 +660,9 @@ static int do_load_bpf_file(const char *path, fixup_map_cb fixup_map)
 		    memcmp(shname, "sockops", 7) == 0 ||
 		    memcmp(shname, "sk_skb", 6) == 0 ||
 		    memcmp(shname, "sk_msg", 6) == 0) {
+			if (debug)
+				printf("EYONGGU: %s(): load prog from sec: %s\n",
+				       __func__, shname);
 			ret = load_and_attach(shname, data->d_buf,
 					      data->d_size);
 			if (ret != 0)
