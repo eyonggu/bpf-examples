@@ -1,4 +1,4 @@
-CFLAGS=-DHAVE_ATTR_TEST=0
+CFLAGS=-DHAVE_ATTR_TEST=0 -I.
 
 LLC ?= llc
 CLANG ?= clang
@@ -10,8 +10,7 @@ linuxhdrs ?=
 
 BPFOBJS = hello_kern.o
 PROG = hello_user
-OBJS = $(COMMONOBJS) $(PROG).o
-COMMONOBJS = ../common/bpf_load.o
+OBJS = bpf_load.o hello_user.o
 LDLIBS = -l:libbpf.a -lelf -lz
 
 .PHONY: all clean
@@ -31,7 +30,7 @@ $(BPFOBJS): %.o:%.c
 
 #Static Pattern Rules
 $(OBJS): %.o:%.c
-	$(CC) $(CFLAGS) -I../common -I../common/include -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(PROG): $(OBJS)
 	$(CC) $^ -o $@ $(LDLIBS)
