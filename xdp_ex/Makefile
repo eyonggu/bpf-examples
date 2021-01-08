@@ -4,11 +4,16 @@ CLANG ?= clang
 #NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
 LLC_FLAGS=
 
-KERNOBJS = $(patsubst %.c,%.o,$(wildcard *.c))
+TOP = ..
+
+BPFOBJS = xdp-drop-world.o
+PROGS = xdp-drop-world_user
+OBJS = xdp-drop-world_user.o
+LDLIBS = $(TOP)/lib/libbpf.a -lelf
 
 .PHONY: all clean
 
-all: $(KERNOBJS) $(PROGS)
+all: $(BPFOBJS) $(PROGS)
 
 $(KERNOBJS): %.o:%.c
 	@echo "  CLANG-bpf " $@
@@ -21,5 +26,11 @@ $(KERNOBJS): %.o:%.c
 		-Wno-unknown-warning-option $(CLANG_ARCH_ARGS) \
 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf $(LLC_FLAGS) -filetype=obj -o $@
 
+%.o : %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(PROGS): $(OBJS)
+	$(CC) $^ -o $@ $(LDLIBS)
+
 clean:
-	rm -f $(KERNOBJS)
+	rm -f $(BPFOBJS) $(OBJS) $(PROGS)
