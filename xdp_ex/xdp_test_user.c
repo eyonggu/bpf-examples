@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-static const char *__doc__ = "Simple XDP prog doing XDP_PASS\n";
+static const char *__doc__ = "Simple XDP usespace prog\n";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,8 +38,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
 	struct arguments *arguments = state->input;
 	switch (key) {
-	case 'd': strncpy(arguments->dev, arg, 16); break;
-	case 'f': strncpy(arguments->bpf, arg, 16); break;
+	case 'd': strncpy(arguments->dev, arg, sizeof(arguments->dev)); break;
+	case 'f': strncpy(arguments->bpf, arg, sizeof(arguments->bpf)); break;
 	case 'u': arguments->do_unload = true; break;
 	default: return ARGP_ERR_UNKNOWN;
 	}

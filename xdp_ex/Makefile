@@ -6,16 +6,16 @@ LLC_FLAGS=
 
 TOP = ..
 
-BPFOBJS = xdp-drop-world.o
-PROGS = xdp-drop-world_user
-OBJS = xdp-drop-world_user.o
+KERNOBJS = $(patsubst %.c,%.o,$(wildcard *_kern.c))
+USEROBJS = $(patsubst %.c,%.o,$(wildcard *_user.c))
+PROGS = $(patsubst %_user.c,%,$(wildcard *_user.c))
 LDLIBS = $(TOP)/lib/libbpf.a -lelf
 
 .PHONY: all clean
 
-all: $(BPFOBJS) $(PROGS)
+all: $(KERNOBJS) $(PROGS)
 
-$(BPFOBJS): %.o:%.c
+$(KERNOBJS): %.o:%.c
 	@echo "  CLANG-bpf " $@
 	$(Q)$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
 		-D__KERNEL__ -D__BPF_TRACING__ \
@@ -29,8 +29,9 @@ $(BPFOBJS): %.o:%.c
 %.o : %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(PROGS): $(OBJS)
+#static pattern rules
+$(PROGS): % : %_user.o
 	$(CC) $^ -o $@ $(LDLIBS)
 
 clean:
-	rm -f $(BPFOBJS) $(OBJS) $(PROGS)
+	rm -f $(KERNOBJS) $(USEROBJS) $(PROGS)

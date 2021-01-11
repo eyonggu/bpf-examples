@@ -2,6 +2,7 @@
 #ifndef __BPF_LOAD_H
 #define __BPF_LOAD_H
 
+/* only used some APIs in this header file, didn't use APIs in libbpf.h */
 #include <bpf/bpf.h>
 
 #define MAX_MAPS 32
