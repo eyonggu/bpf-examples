@@ -15,7 +15,7 @@ LDLIBS = $(TOP)/lib/libbpf.a -lelf
 
 all: $(BPFOBJS) $(PROGS)
 
-$(KERNOBJS): %.o:%.c
+$(BPFOBJS): %.o:%.c
 	@echo "  CLANG-bpf " $@
 	$(Q)$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
 		-D__KERNEL__ -D__BPF_TRACING__ \
