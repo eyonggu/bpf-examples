@@ -8,6 +8,7 @@ TOP = ..
 
 KERNOBJS = $(patsubst %.c,%.o,$(wildcard *_kern.c))
 USEROBJS = $(patsubst %.c,%.o,$(wildcard *_user.c))
+COMMOBJS = xdp_common.o
 PROGS = $(patsubst %_user.c,%,$(wildcard *_user.c))
 LDLIBS = $(TOP)/lib/libbpf.a -lelf
 
@@ -15,6 +16,7 @@ LDLIBS = $(TOP)/lib/libbpf.a -lelf
 
 all: $(KERNOBJS) $(PROGS)
 
+#static pattern rules for kern specific object
 $(KERNOBJS): %.o:%.c
 	@echo "  CLANG-bpf " $@
 	$(Q)$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
@@ -26,12 +28,15 @@ $(KERNOBJS): %.o:%.c
 		-Wno-unknown-warning-option $(CLANG_ARCH_ARGS) \
 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf $(LLC_FLAGS) -filetype=obj -o $@
 
+#Pattern rules
 %.o : %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-#static pattern rules
-$(PROGS): % : %_user.o
+xdp_test: xdp_test_user.o $(COMMOBJS)
+	$(CC) $^ -o $@ $(LDLIBS)
+
+xdp_stats: xdp_stats_user.o $(COMMOBJS)
 	$(CC) $^ -o $@ $(LDLIBS)
 
 clean:
-	rm -f $(KERNOBJS) $(USEROBJS) $(PROGS)
+	rm -f $(KERNOBJS) $(COMMOBJS) $(USEROBJS) $(PROGS)

@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-static const char *__doc__ = "Simple XDP usespace prog\n";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,18 +6,21 @@ static const char *__doc__ = "Simple XDP usespace prog\n";
 #include <errno.h>
 #include <getopt.h>
 
+#include <net/if.h>
+#include <linux/if_link.h> /* XDP macros */
+
 #include <argp.h>
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 
-#include <net/if.h>
-#include <linux/if_link.h> /* depend on kernel-headers installed */
+#include "xdp_common.h"
 
 struct arguments {
 	char dev[16];
 	char bpf[64];
 	bool do_unload;
+	bool force_load;
 
 	int ifindex;
 	int xdp_flags;
@@ -30,9 +32,10 @@ static struct argp_option options[] = {
 	{ "dev",   'd', "DEV",    0,    "Operate on device <ifname>" },
 	{ "file",  'f', "FILE",   0,    "BPF object file to be loaded" },
 	{ "unload",'u',  0,       0,    "Unload XDP program"},
+	{ "force", 'F',  0,       0,    "Force loading, replacing existing"},
 	{ 0 }
 };
-static char doc[] = "Simple XDP prog";
+static char doc[] = "Simple prog to load/unload XDP eBPF prog";
 static char args_doc[] = "...";
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
@@ -41,6 +44,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	case 'd': strncpy(arguments->dev, arg, sizeof(arguments->dev)); break;
 	case 'f': strncpy(arguments->bpf, arg, sizeof(arguments->bpf)); break;
 	case 'u': arguments->do_unload = true; break;
+	case 'F': arguments->force_load = true; break;
 	default: return ARGP_ERR_UNKNOWN;
 	}
 
@@ -75,92 +79,6 @@ static const struct option_wrapper long_options[] = {
 };
 #endif
 
-int load_bpf_object_file__simple(const char *filename)
-{
-	int first_prog_fd = -1;
-	struct bpf_object *obj;
-	int err;
-
-	struct bpf_prog_load_attr prog_load_attr = {
-		.prog_type = BPF_PROG_TYPE_XDP,
-		.file = filename,
-	};
-
-
-	/* Use libbpf for extracting BPF byte-code from BPF-ELF object, and
-	 * loading this into the kernel via bpf-syscall
-	 */
-	err = bpf_prog_load_xattr(&prog_load_attr, &obj, &first_prog_fd);
-	if (err) {
-		fprintf(stderr, "ERR: loading BPF-OBJ file(%s) (%d): %s\n",
-			filename, err, strerror(-err));
-		return -1;
-	}
-
-	/* Simply return the first program file descriptor.
-	 * (Hint: This will get more advanced later)
-	 */
-	return first_prog_fd;
-}
-
-static int xdp_link_detach(int ifindex, __u32 xdp_flags)
-{
-	int err;
-
-	if ((err = bpf_set_link_xdp_fd(ifindex, -1, xdp_flags)) < 0) {
-		fprintf(stderr, "ERR: link set xdp unload failed (err=%d):%s\n",
-			err, strerror(-err));
-		return err;
-	}
-	return 0;
-}
-
-int xdp_link_attach(int ifindex, __u32 xdp_flags, int prog_fd)
-{
-	int err;
-
-	/* libbpf provide the XDP net_device link-level hook attach helper */
-	err = bpf_set_link_xdp_fd(ifindex, prog_fd, xdp_flags);
-	if (err == -EEXIST && !(xdp_flags & XDP_FLAGS_UPDATE_IF_NOEXIST)) {
-		/* Force mode didn't work, probably because a program of the
-		 * opposite type is loaded. Let's unload that and try loading
-		 * again.
-		 */
-
-		__u32 old_flags = xdp_flags;
-
-		xdp_flags &= ~XDP_FLAGS_MODES;
-		xdp_flags |= (old_flags & XDP_FLAGS_SKB_MODE) ?
-			XDP_FLAGS_DRV_MODE : XDP_FLAGS_SKB_MODE;
-		err = bpf_set_link_xdp_fd(ifindex, -1, xdp_flags);
-		if (!err)
-			err = bpf_set_link_xdp_fd(ifindex, prog_fd, old_flags);
-	}
-
-	if (err < 0) {
-		fprintf(stderr, "ERR: "
-			"ifindex(%d) link set xdp fd failed (%d): %s\n",
-			ifindex, -err, strerror(-err));
-
-		switch (-err) {
-		case EBUSY:
-		case EEXIST:
-			fprintf(stderr, "Hint: XDP already loaded on device"
-				" use --force to swap/replace\n");
-			break;
-		case EOPNOTSUPP:
-			fprintf(stderr, "Hint: Native-XDP not supported"
-				" use --skb-mode or --auto-mode\n");
-			break;
-		default:
-			break;
-		}
-		return err;
-	}
-
-	return 0;
-}
-
 int main(int argc, char **argv)
 {
 	struct arguments args;
@@ -178,6 +96,8 @@ int main(int argc, char **argv)
 #endif
 	strcpy(args.dev, "lo");  /* default 'lo" device */
 	args.xdp_flags = 0;
+	if (args.force_load)
+		args.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST;
 	args.do_unload = false;
 
 	argp_parse(&argp, argc, argv, 0, 0, &args);
