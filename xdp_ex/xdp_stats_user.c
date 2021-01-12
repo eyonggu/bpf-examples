@@ -18,13 +18,14 @@
 #include <argp.h>
 
 #include "xdp_common.h"
+#include "common_kern_user.h"
 
 struct arguments {
 	char dev[16];
 	char bpf[64];
 	char progsec[64];
-	bool do_unload;
 	bool force_load;
+	bool skip_load;
 
 	int ifindex;
 	int xdp_flags;
@@ -35,8 +36,8 @@ static struct argp_option options[] = {
 	/* name    key   arg    flags   doc */
 	{ "dev",   'd', "DEV",    0,    "Operate on device <ifname>" },
 	{ "file",  'f', "FILE",   0,    "BPF object file to be loaded" },
-	{ "sec",   's', "SEC",    0,    "Section to be used" },
-	{ "unload",'u',  0,       0,    "Unload XDP program"},
+	{ "progsec",'p', "PROG",  0,    "Section to be used" },
+	{ "skip",  's',  0,       0,    "Skip XDP program loading"},
 	{ "force", 'F',  0,       0,    "Force loading, replacing existing"},
 	{ 0 }
 };
@@ -48,8 +49,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	switch (key) {
 	case 'd': strncpy(arguments->dev, arg, sizeof(arguments->dev)); break;
 	case 'f': strncpy(arguments->bpf, arg, sizeof(arguments->bpf)); break;
-	case 's': strncpy(arguments->progsec, arg, sizeof(arguments->progsec)); break;
-	case 'u': arguments->do_unload = true; break;
+	case 'p': strncpy(arguments->progsec, arg, sizeof(arguments->progsec)); break;
+	case 's': arguments->skip_load = true; break;
 	case 'F': arguments->force_load = true; break;
 	default: return ARGP_ERR_UNKNOWN;
 	}
@@ -106,10 +107,25 @@ void map_get_value_array(int fd, __u32 key, struct datarec *value)
 void map_get_value_percpu_array(int fd, __u32 key, struct datarec *value)
 {
 	/* For percpu maps, userspace gets a value per possible CPU */
-	// unsigned int nr_cpus = bpf_num_possible_cpus();
-	// struct datarec values[nr_cpus];
+	unsigned int nr_cpus = libbpf_num_possible_cpus();
+	struct datarec values[nr_cpus];
+	__u64 sum_bytes = 0;
+	__u64 sum_pkts = 0;
+	int i;
 
-	fprintf(stderr, "ERR: %s() not impl. see assignment#3", __func__);
+	if ((bpf_map_lookup_elem(fd, &key, values)) != 0) {
+		fprintf(stderr,
+			"ERR: bpf_map_lookup_elem failed key:0x%X\n", key);
+		return;
+	}
+
+	/* Sum values from each CPU */
+	for (i = 0; i < nr_cpus; i++) {
+		sum_pkts  += values[i].rx_packets;
+		sum_bytes += values[i].rx_bytes;
+	}
+	value->rx_packets = sum_pkts;
+	value->rx_bytes   = sum_bytes;
 }
 
 static bool map_collect(int fd, __u32 map_type, __u32 key, struct record *rec)
@@ -124,7 +140,8 @@ static bool map_collect(int fd, __u32 map_type, __u32 key, struct record *rec)
 		map_get_value_array(fd, key, &value);
 		break;
 	case BPF_MAP_TYPE_PERCPU_ARRAY:
-		/* fall-through */
+		map_get_value_percpu_array(fd, key, &value);
+		break;
 	default:
 		fprintf(stderr, "ERR: Unknown map_type(%u) cannot handle\n",
 			map_type);
@@ -132,8 +149,8 @@ static bool map_collect(int fd, __u32 map_type, __u32 key, struct record *rec)
 		break;
 	}
 
-	/* Assignment#1: Add byte counters */
 	rec->total.rx_packets = value.rx_packets;
+	rec->total.rx_bytes = value.rx_bytes;
 	return true;
 }
 
@@ -151,13 +168,14 @@ static void stats_print(struct stats_record *stats_rec,
 {
 	struct record *rec, *prev;
 	double period;
-	__u64 packets;
+	__u64 packets, kbytes;
 	double pps; /* packets per sec */
+	double mbps; /* mbits per sec */
 
 	/* Assignment#2: Print other XDP actions stats  */
 	{
 		char *fmt = "%-12s %'11lld pkts (%'10.0f pps)"
-			//" %'11lld Kbytes (%'6.0f Mbits/s)"
+			" %'11lld Kbytes (%'6.0f Mbits/s)"
 			" period:%f\n";
 		const char *action = action2str(XDP_PASS);
 		rec  = &stats_rec->stats[0];
@@ -170,7 +188,12 @@ static void stats_print(struct stats_record *stats_rec,
 		packets = rec->total.rx_packets - prev->total.rx_packets;
 		pps     = packets / period;
 
-		printf(fmt, action, rec->total.rx_packets, pps, period);
+		kbytes = (rec->total.rx_bytes - prev->total.rx_bytes) / 1000;
+		mbps = (kbytes * 8) / (1000 * period);
+
+
+		printf(fmt, action, rec->total.rx_packets, pps,
+		       rec->total.rx_bytes, mbps, period);
 	}
 }
 
@@ -223,14 +246,13 @@ int main(int argc, char **argv)
 	struct bpf_map_info map_info;
 	__u32 map_info_size = sizeof(map_info);
 	int interval = 2;
-	int err;
+	int len, err;
 
 	/* parse options */
 	strcpy(args.dev, "lo");  /* default 'lo" device */
 	args.xdp_flags = 0;
 	if (args.force_load)
 		args.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE;
-	args.do_unload = false;
 	strcpy(args.progsec, "xdp_stats1");
 
 	argp_parse(&argp, argc, argv, 0, 0, &args);
@@ -241,6 +263,18 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	if (args.skip_load) {
+		/* Use the --dev name as subdir for finding pinned maps */
+		stats_map_fd = open_bpf_map_file(args.dev, "xdp_stats_map",
+						 &map_info);
+		if (stats_map_fd < 0) {
+			return -1;
+		}
+
+		stats_poll(stats_map_fd, map_info.type, interval);
+
+		return 0;
+	}
 
 	bpf_obj = load_bpf_and_xdp_attach(args.bpf, NULL, args.ifindex,
 					  args.xdp_flags);

@@ -15,23 +15,21 @@ static const char *xdp_action_names[XDP_ACTION_MAX] = {
 	[XDP_UNKNOWN]	= "XDP_UNKNOWN",
 };
 
-const char *action2str(__u32 action)
+static inline const char *action2str(__u32 action)
 {
         if (action < XDP_ACTION_MAX)
                 return xdp_action_names[action];
         return 0;
 }
 
-/* This is the data record stored in the map */
-struct datarec {
-	__u64 rx_packets;
-	/* Assignment#1: Add byte counters */
-};
-
 int load_bpf_object_file__simple(const char *filename);
 
 struct bpf_object *load_bpf_and_xdp_attach(char *filename, char *progsec,
 					   int ifindex, int xdp_flags);
+
+int pin_maps_in_bpf_object(struct bpf_object *bpf_obj, const char *subdir);
+int open_bpf_map_file(const char *subdir, const char *mapname,
+		      struct bpf_map_info *info);
 
 int xdp_link_attach(int ifindex, __u32 xdp_flags, int prog_fd);
 int xdp_link_detach(int ifindex, __u32 xdp_flags);

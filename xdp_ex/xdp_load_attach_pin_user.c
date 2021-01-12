@@ -18,9 +18,11 @@
 
 struct arguments {
 	char dev[16];
-	char bpf[64];
+	char file[64];
+	char progsec[64];
 	bool do_unload;
 	bool force_load;
+	bool pin_maps;
 
 	int ifindex;
 	int xdp_flags;
@@ -31,6 +33,8 @@ static struct argp_option options[] = {
 	/* name    key   arg    flags   doc */
 	{ "dev",   'd', "DEV",    0,    "Operate on device <ifname>" },
 	{ "file",  'f', "FILE",   0,    "BPF object file to be loaded" },
+	{ "sec",   's', "SEC",    0,    "Section to be used" },
+	{ "pin",   'p',  0,       0,    "Mpas pinned under /sys/fs/bpf"},
 	{ "unload",'u',  0,       0,    "Unload XDP program"},
 	{ "force", 'F',  0,       0,    "Force loading, replacing existing"},
 	{ 0 }
@@ -42,7 +46,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	struct arguments *arguments = state->input;
 	switch (key) {
 	case 'd': strncpy(arguments->dev, arg, sizeof(arguments->dev)); break;
-	case 'f': strncpy(arguments->bpf, arg, sizeof(arguments->bpf)); break;
+	case 'f': strncpy(arguments->file, arg, sizeof(arguments->file)); break;
+	case 's': strncpy(arguments->progsec, arg, sizeof(arguments->progsec)); break;
+	case 'p': arguments->pin_maps = true; break;
 	case 'u': arguments->do_unload = true; break;
 	case 'F': arguments->force_load = true; break;
 	default: return ARGP_ERR_UNKNOWN;
@@ -82,18 +88,9 @@ static const struct option_wrapper long_options[] = {
 int main(int argc, char **argv)
 {
 	struct arguments args;
+	struct bpf_object *bpf_obj;
+	int err;
 
-	struct bpf_prog_info info = {};
-	__u32 info_len = sizeof(info);
-	int prog_fd, err;
-
-#if 0
-	struct config cfg = {
-		.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE,
-		.ifindex   = -1,
-		.do_unload = false,
-	};
-#endif
 	strcpy(args.dev, "lo");  /* default 'lo" device */
 	args.xdp_flags = 0;
 	if (args.force_load)
@@ -108,36 +105,17 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	if (args.do_unload)
-		return xdp_link_detach(args.ifindex, args.xdp_flags);
-
-	/* Load the BPF-ELF object file and get back first BPF_prog FD */
-	prog_fd = load_bpf_object_file__simple(args.bpf);
-	if (prog_fd <= 0) {
-		fprintf(stderr, "ERR: loading file: %s\n", args.bpf);
+	bpf_obj = load_bpf_and_xdp_attach(args.file, NULL, args.ifindex,
+					  args.xdp_flags);
+	if (!bpf_obj)
 		return -1;
-	}
 
-	/* At this point: BPF-prog is (only) loaded by the kernel, and prog_fd
-	 * is our file-descriptor handle. Next step is attaching this FD to a
-	 * kernel hook point, in this case XDP net_device link-level hook.
-	 * Fortunately libbpf have a helper for this:
-	 */
-	err = xdp_link_attach(args.ifindex, args.xdp_flags, prog_fd);
-	if (err)
-		return err;
-
-        /* This step is not really needed , BPF-info via bpf-syscall */
-	err = bpf_obj_get_info_by_fd(prog_fd, &info, &info_len);
+	/* Use the --dev name as subdir for exporting/pinning maps */
+	err = pin_maps_in_bpf_object(bpf_obj, args.dev);
 	if (err) {
-		fprintf(stderr, "ERR: can't get prog info - %s\n",
-			strerror(errno));
+		fprintf(stderr, "ERR: pinning maps\n");
 		return err;
 	}
-
-	printf("Success: Loading "
-	       "XDP prog name:%s(id:%d) on device:%s(ifindex:%d)\n",
-	       info.name, info.id, args.dev, args.ifindex);
 
 	return 0;
 }

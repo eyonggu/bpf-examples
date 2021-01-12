@@ -32,7 +32,10 @@ $(KERNOBJS): %.o:%.c
 %.o : %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-xdp_test: xdp_test_user.o $(COMMOBJS)
+xdp_simple_load_attach: xdp_simple_load_attach_user.o $(COMMOBJS)
+	$(CC) $^ -o $@ $(LDLIBS)
+
+xdp_load_attach_pin: xdp_load_attach_pin_user.o $(COMMOBJS)
 	$(CC) $^ -o $@ $(LDLIBS)
 
 xdp_stats: xdp_stats_user.o $(COMMOBJS)
