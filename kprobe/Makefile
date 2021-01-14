@@ -1,24 +1,23 @@
-CFLAGS=-DHAVE_ATTR_TEST=0 -I.
-
 LLC ?= llc
 CLANG ?= clang
-#Now assume libbpf is compiled from github mirror and installed in STD INC (/usr/include/bpf)
-#NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
+NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
 LLC_FLAGS=
 
-linuxhdrs ?=
+LINUXINCLUDE = -I/usr/src/linux-source-5.4.0/usr/include
+LINUXINCLUDE += -I/usr/src/linux-source-5.4.0/tools/testing/selftests/
 
-BPFOBJS = hello_kern.o
-PROG = hello_user
-OBJS = hello_user.o
-COMOBJS = ../common/bpf_load.o
-LDLIBS = -l:libbpf.a -lelf -lz
+KERNOBJS = $(patsubst %.c,%.o,$(wildcard *_kern.c))
+PROGS = $(patsubst %_user.c,%,$(wildcard *_user.c))
+OBJS = $(patsubst %.c,%.o,$(wildcard *_user.c))
+COMOBJS += ../common/bpf_load.o
+CFLAGS = -DHAVE_ATTR_TEST=0
+LDLIBS = ../lib/libbpf.a -lelf
 
 .PHONY: all clean
 
-all: $(BPFOBJS) $(PROG)
+all: $(KERNOBJS) $(PROGS)
 
-$(BPFOBJS): %.o:%.c
+$(KERNOBJS): %.o:%.c
 	@echo "  CLANG-bpf " $@
 	$(Q)$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
 		-D__KERNEL__ -D__BPF_TRACING__ \
@@ -36,8 +35,8 @@ $(COMOBJS): %.o:%.c
 $(OBJS): %.o:%.c
 	$(CC) $(CFLAGS) -I../common -c $< -o $@
 
-$(PROG): $(OBJS) $(COMOBJS)
+kp_tcp: kp_tcp_user.o $(COMOBJS)
 	$(CC) $^ -o $@ $(LDLIBS)
 
 clean:
-	rm -f $(BPFOBJS) $(OBJS) $(COMOBJS) $(PROG)
+	rm -f $(KERNOBJS) $(OBJS) $(COMOBJS) $(PROGS)
