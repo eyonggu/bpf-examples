@@ -1,10 +1,7 @@
 #ifndef __XDP_COMMON_H
 #define __XDP_COMMON_H
 
-#define XDP_UNKNOWN	XDP_REDIRECT + 1
-#ifndef XDP_ACTION_MAX
-#define XDP_ACTION_MAX (XDP_UNKNOWN + 1)
-#endif
+#include "common_kern_user.h"
 
 static const char *xdp_action_names[XDP_ACTION_MAX] = {
 	[XDP_ABORTED]   = "XDP_ABORTED",
@@ -12,7 +9,7 @@ static const char *xdp_action_names[XDP_ACTION_MAX] = {
 	[XDP_PASS]      = "XDP_PASS",
 	[XDP_TX]        = "XDP_TX",
 	[XDP_REDIRECT]  = "XDP_REDIRECT",
-	[XDP_UNKNOWN]	= "XDP_UNKNOWN",
+	//[XDP_UNKNOWN]	= "XDP_UNKNOWN",
 };
 
 static inline const char *action2str(__u32 action)

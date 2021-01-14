@@ -33,7 +33,7 @@ static struct argp_option options[] = {
 	/* name    key   arg    flags   doc */
 	{ "dev",   'd', "DEV",    0,    "Operate on device <ifname>" },
 	{ "file",  'f', "FILE",   0,    "BPF object file to be loaded" },
-	{ "sec",   's', "SEC",    0,    "Section to be used" },
+	{ "progsec",'s', "PROGSEC",  0,    "Section to be loaded" },
 	{ "pin",   'p',  0,       0,    "Mpas pinned under /sys/fs/bpf"},
 	{ "unload",'u',  0,       0,    "Unload XDP program"},
 	{ "force", 'F',  0,       0,    "Force loading, replacing existing"},
@@ -89,13 +89,15 @@ int main(int argc, char **argv)
 {
 	struct arguments args;
 	struct bpf_object *bpf_obj;
-	int err;
+	struct bpf_prog_info info = {};
+	__u32 info_len = sizeof(info);
+	char *prog_sec = NULL;
+	int prog_fd, err;
 
+	memset(&args, 0, sizeof(args));
 	strcpy(args.dev, "lo");  /* default 'lo" device */
-	args.xdp_flags = 0;
 	if (args.force_load)
 		args.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST;
-	args.do_unload = false;
 
 	argp_parse(&argp, argc, argv, 0, 0, &args);
 
@@ -105,16 +107,55 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	bpf_obj = load_bpf_and_xdp_attach(args.file, NULL, args.ifindex,
+	if (args.do_unload)
+		return xdp_link_detach(args.ifindex, args.xdp_flags);
+
+#if 0
+	/* Load the BPF-ELF object file and get back first BPF_prog FD */
+	prog_fd = load_bpf_object_file__simple(args.file);
+	if (prog_fd <= 0) {
+		fprintf(stderr, "ERR: loading file: %s\n", args.file);
+		return -1;
+	}
+
+	/* At this point: BPF-prog is (only) loaded by the kernel, and prog_fd
+	 * is our file-descriptor handle. Next step is attaching this FD to a
+	 * kernel hook point, in this case XDP net_device link-level hook.
+	 * Fortunately libbpf have a helper for this:
+	 */
+	err = xdp_link_attach(args.ifindex, args.xdp_flags, prog_fd);
+	if (err)
+		return err;
+
+        /* This step is not really needed , BPF-info via bpf-syscall */
+	err = bpf_obj_get_info_by_fd(prog_fd, &info, &info_len);
+	if (err) {
+		fprintf(stderr, "ERR: can't get prog info - %s\n",
+			strerror(errno));
+		return err;
+	}
+
+	printf("Success: Loading "
+	       "XDP prog name:%s(id:%d) on device:%s(ifindex:%d)\n",
+	       info.name, info.id, args.dev, args.ifindex);
+
+#endif
+
+	if (args.progsec[0])
+		prog_sec = args.progsec;
+
+	bpf_obj = load_bpf_and_xdp_attach(args.file, prog_sec, args.ifindex,
 					  args.xdp_flags);
 	if (!bpf_obj)
 		return -1;
 
-	/* Use the --dev name as subdir for exporting/pinning maps */
-	err = pin_maps_in_bpf_object(bpf_obj, args.dev);
-	if (err) {
-		fprintf(stderr, "ERR: pinning maps\n");
-		return err;
+	if (args.pin_maps) {
+		/* Use the --dev name as subdir for exporting/pinning maps */
+		err = pin_maps_in_bpf_object(bpf_obj, args.dev);
+		if (err) {
+			fprintf(stderr, "ERR: pinning maps\n");
+			return err;
+		}
 	}
 
 	return 0;

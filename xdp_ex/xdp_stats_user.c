@@ -18,14 +18,11 @@
 #include <argp.h>
 
 #include "xdp_common.h"
-#include "common_kern_user.h"
 
 struct arguments {
 	char dev[16];
-	char bpf[64];
-	char progsec[64];
+	char file[64];
 	bool force_load;
-	bool skip_load;
 
 	int ifindex;
 	int xdp_flags;
@@ -36,8 +33,6 @@ static struct argp_option options[] = {
 	/* name    key   arg    flags   doc */
 	{ "dev",   'd', "DEV",    0,    "Operate on device <ifname>" },
 	{ "file",  'f', "FILE",   0,    "BPF object file to be loaded" },
-	{ "progsec",'p', "PROG",  0,    "Section to be used" },
-	{ "skip",  's',  0,       0,    "Skip XDP program loading"},
 	{ "force", 'F',  0,       0,    "Force loading, replacing existing"},
 	{ 0 }
 };
@@ -48,9 +43,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 	struct arguments *arguments = state->input;
 	switch (key) {
 	case 'd': strncpy(arguments->dev, arg, sizeof(arguments->dev)); break;
-	case 'f': strncpy(arguments->bpf, arg, sizeof(arguments->bpf)); break;
-	case 'p': strncpy(arguments->progsec, arg, sizeof(arguments->progsec)); break;
-	case 's': arguments->skip_load = true; break;
+	case 'f': strncpy(arguments->file, arg, sizeof(arguments->file)); break;
 	case 'F': arguments->force_load = true; break;
 	default: return ARGP_ERR_UNKNOWN;
 	}
@@ -158,9 +151,10 @@ static void stats_collect(int map_fd, __u32 map_type,
 			  struct stats_record *stats_rec)
 {
 	/* Assignment#2: Collect other XDP actions stats  */
-	__u32 key = XDP_PASS;
+	__u32 key;
 
-	map_collect(map_fd, map_type, key, &stats_rec->stats[0]);
+	for (key = 0; key < XDP_ACTION_MAX; key++)
+		map_collect(map_fd, map_type, key, &stats_rec->stats[0]);
 }
 
 static void stats_print(struct stats_record *stats_rec,
@@ -171,13 +165,14 @@ static void stats_print(struct stats_record *stats_rec,
 	__u64 packets, kbytes;
 	double pps; /* packets per sec */
 	double mbps; /* mbits per sec */
+	__u32 key;
 
 	/* Assignment#2: Print other XDP actions stats  */
-	{
+	for (key = 0; key < XDP_ACTION_MAX; key++) {
 		char *fmt = "%-12s %'11lld pkts (%'10.0f pps)"
 			" %'11lld Kbytes (%'6.0f Mbits/s)"
 			" period:%f\n";
-		const char *action = action2str(XDP_PASS);
+		const char *action = action2str(key);
 		rec  = &stats_rec->stats[0];
 		prev = &stats_prev->stats[0];
 
@@ -249,11 +244,10 @@ int main(int argc, char **argv)
 	int len, err;
 
 	/* parse options */
+	memset(&args, 0, sizeof(args));
 	strcpy(args.dev, "lo");  /* default 'lo" device */
-	args.xdp_flags = 0;
 	if (args.force_load)
 		args.xdp_flags = XDP_FLAGS_UPDATE_IF_NOEXIST | XDP_FLAGS_DRV_MODE;
-	strcpy(args.progsec, "xdp_stats1");
 
 	argp_parse(&argp, argc, argv, 0, 0, &args);
 
@@ -263,7 +257,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	if (args.skip_load) {
+	if (!args.file[0]) {
 		/* Use the --dev name as subdir for finding pinned maps */
 		stats_map_fd = open_bpf_map_file(args.dev, "xdp_stats_map",
 						 &map_info);
@@ -276,7 +270,7 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	bpf_obj = load_bpf_and_xdp_attach(args.bpf, NULL, args.ifindex,
+	bpf_obj = load_bpf_and_xdp_attach(args.file, NULL, args.ifindex,
 					  args.xdp_flags);
 	if (!bpf_obj)
 		return -1;
