@@ -1,16 +1,15 @@
 LLC ?= llc
 CLANG ?= clang
-NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
+#NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
 LLC_FLAGS=
 
-LINUXINCLUDE ?= -I../common/include
-LINUXINCLUDE += -I/usr/src/linux-headers-5.4.0-58/include
+LINUXINCLUDE ?= -I../include
 
 KERNOBJS = $(patsubst %.c,%.o,$(wildcard *_kern.c))
 PROGS = $(patsubst %_user.c,%,$(wildcard *_user.c))
 USEROBJS = $(patsubst %.c,%.o,$(wildcard *_user.c))
-CFLAGS = -DHAVE_ATTR_TEST=0 -I../common/include
-LDLIBS = ../common/lib/libbpf.a -lelf
+CFLAGS = -DHAVE_ATTR_TEST=0
+LDLIBS = -l:libbpf.a -lelf -lz
 
 .PHONY: all clean
 

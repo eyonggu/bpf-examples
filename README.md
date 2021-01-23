@@ -7,15 +7,18 @@ kernel tree under tools/lib/bpf, but Facebook engineers maintain a mirror on
 Github: https://github.com/libbpf/libbpf.
 
 It is added as a submodule via:
-#+begin_example
+
+```console
 git submodule add https://github.com/libbpf/libbpf/ libbpf
-#+end_example
+```
 
 After clone this repo, you need to run the command:
 
-#+begin_example
+```console
 git submodule update --init
-#+end_example
+```
+
+Refer to libbpf README file for how to compile and install
 
 ## Dependencies
 Main dependencies are:
@@ -23,7 +26,6 @@ Main dependencies are:
 - llvm
 - clang
 - libelf
-
 
 ## bpftool
 

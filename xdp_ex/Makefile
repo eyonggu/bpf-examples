@@ -10,7 +10,7 @@ KERNOBJS = $(patsubst %.c,%.o,$(wildcard *_kern.c))
 USEROBJS = $(patsubst %.c,%.o,$(wildcard *_user.c))
 COMMOBJS = xdp_common.o
 PROGS = $(patsubst %_user.c,%,$(wildcard *_user.c))
-LDLIBS = $(TOP)/lib/libbpf.a -lelf
+LDLIBS = -l:libbpf.a -lelf
 
 .PHONY: all clean
 
