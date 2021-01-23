@@ -1,5 +1,11 @@
 # XDP Example
 
+* **xdp_drop_world**: drop all packets
+* **xdp_drop_udp**: drop udp packets
+* **xdp_xdp_stat**: packet statistics with map
+* **xdp_packert_parsing**: parse packet header, drop every second icmp packet
+* **xdp_redirect**:
+
 ## Manually load/unload xdp program using ip tool
 ```console
 sudo ip link set dev lo xdp obj xdp-drop-world.o sec xdp verbose
@@ -51,7 +57,7 @@ sudo ./xdp_loader -d lo -f xdp_stats_kern.o
 sduo ./xdp_stats -d lo -s &
 ```
 
-## Test paacket parse
+## Test packet parsing
 
 Best to setup test environment using the script below: <br/>
 https://github.com/xdp-project/xdp-tutorial/tree/master/testenv
