@@ -6,13 +6,16 @@
 * **xdp_packert_parsing**: parse packet header, drop every second icmp packet
 * **xdp_redirect**:
 
-## Manually load/unload xdp program using ip tool
+## load program
+* ip link command
+
 ```console
 sudo ip link set dev lo xdp obj xdp-drop-world.o sec xdp verbose
 sudo ip link set dev lo xdp off
 ```
 
-## use userspace test program to load/unload
+* xdp_loader
+
 ```console
 sudo ./xdp_loader -d lo -f xdp_drop_world_kern.o
 ping 127.0.0.1

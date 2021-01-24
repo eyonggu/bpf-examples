@@ -9,8 +9,8 @@
  */
 //#ifndef __XDP_STATS_KERN_USER_H
 #ifndef __COMMON_KERN_USER_H
-#warning "You forgot to include common_kern_user.h"
-#include "common_kern_user.h"
+#warning "You forgot to include xdp_common_kern_user.h"
+#include "xdp_common_kern_user.h"
 #endif
 
 /* Keeps stats per (enum) xdp_action */

@@ -1,7 +1,7 @@
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
 
-#include "common_kern_user.h"
+#include "xdp_common_kern_user.h"
 
 /* Creating a BPF map is done by defining a global struct bpf_map_def,
  * with a special SEC("maps") as below */

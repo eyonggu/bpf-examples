@@ -5,10 +5,10 @@
 #include <bpf/bpf_endian.h>
 
 // The parsing helper functions from the packet01 lesson have moved here
-#include "xdp_parsing_helpers.h"
+#include "xdp_kern_parsing_helpers.h"
 
 /* Defines xdp_stats_map */
-#include "common_kern_user.h"
+#include "xdp_common_kern_user.h"
 #include "xdp_stats_kern.h"
 
 #ifndef memcpy

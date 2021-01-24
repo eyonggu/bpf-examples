@@ -1,7 +1,7 @@
 #ifndef __XDP_COMMON_H
 #define __XDP_COMMON_H
 
-#include "common_kern_user.h"
+#include "xdp_common_kern_user.h"
 
 static const char *xdp_action_names[XDP_ACTION_MAX] = {
 	[XDP_ABORTED]   = "XDP_ABORTED",

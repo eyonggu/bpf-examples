@@ -8,9 +8,9 @@ TOP = ..
 
 KERNOBJS = $(patsubst %.c,%.o,$(wildcard *_kern.c))
 USEROBJS = $(patsubst %.c,%.o,$(wildcard *_user.c))
-COMMOBJS = xdp_common.o
-PROGS = $(patsubst %_user.c,%,$(wildcard *_user.c))
-LDLIBS = -l:libbpf.a -lelf
+COMMOBJS = xdp_common_user.o
+PROGS = $(filter-out xdp_common,$(patsubst %_user.c,%,$(wildcard *_user.c)))
+LDLIBS = -l:libbpf.a -lelf -lz
 
 .PHONY: all clean
 

@@ -14,7 +14,7 @@
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 
-#include "xdp_common.h"
+#include "xdp_common_user.h"
 
 struct arguments {
 	char dev[16];
