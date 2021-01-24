@@ -58,7 +58,7 @@ struct record {
 };
 
 struct stats_record {
-	struct record stats[1]; /* Assignment#2: Hint */
+	struct record stats[XDP_ACTION_MAX];
 };
 
 #define NANOSEC_PER_SEC 1000000000 /* 10^9 */
@@ -154,7 +154,7 @@ static void stats_collect(int map_fd, __u32 map_type,
 	__u32 key;
 
 	for (key = 0; key < XDP_ACTION_MAX; key++)
-		map_collect(map_fd, map_type, key, &stats_rec->stats[0]);
+		map_collect(map_fd, map_type, key, &stats_rec->stats[key]);
 }
 
 static void stats_print(struct stats_record *stats_rec,
@@ -173,8 +173,8 @@ static void stats_print(struct stats_record *stats_rec,
 			" %'11lld Kbytes (%'6.0f Mbits/s)"
 			" period:%f\n";
 		const char *action = action2str(key);
-		rec  = &stats_rec->stats[0];
-		prev = &stats_prev->stats[0];
+		rec  = &stats_rec->stats[key];
+		prev = &stats_prev->stats[key];
 
 		period = calc_period(rec, prev);
 		if (period == 0)
@@ -185,7 +185,6 @@ static void stats_print(struct stats_record *stats_rec,
 
 		kbytes = (rec->total.rx_bytes - prev->total.rx_bytes) / 1000;
 		mbps = (kbytes * 8) / (1000 * period);
-
 
 		printf(fmt, action, rec->total.rx_packets, pps,
 		       rec->total.rx_bytes, mbps, period);

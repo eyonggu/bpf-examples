@@ -71,5 +71,32 @@ sudo ./xdp_loader -d test -f xdp_packet_parsing_kern.o
 t exec -- ping6 fc00:dead:cafe:1::1
 ```
 
+## Test redirect
+
+```console
+t exec -n test -- ./xdp_loader -d veth0 -f xdp_redirect_kern.o --progsec xdp_pass
+sudo ./xdp_loader -d test -f xdp_redirect_kern.o -s xdp_icmp_echo -p
+
+t ping
+sudo ./xdp_stats -d test
+```
+
+```console
+
+t setup -n left
+t setup -n right
+
+t exec -n left -- ip link
+t exec -n left -- ip addr
+# replace dst[] and ifindex in "xdp_redirect" function
+
+t exec -n left -- ./xdp_loader -d veth0 -f xdp_redirect_kern.o --progsec xdp_pass
+sudo ./xdp_loader -d right -f xdp_redirect_kern.o -s xdp_redirect -p
+t exec -n right - ping <left inner IP>
+
+# check packet received on left inner interface by "ip -s link" or "tcpdump"
+
+```
+
 
 

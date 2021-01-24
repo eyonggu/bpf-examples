@@ -140,8 +140,11 @@ int xdp_redirect_func(struct xdp_md *ctx)
 	struct ethhdr *eth;
 	int eth_type;
 	int action = XDP_PASS;
-	/* unsigned char dst[ETH_ALEN] = {} */	/* Assignment 2: fill in with the MAC address of the left inner interface */
-	/* unsigned ifindex = 0; */		/* Assignment 2: fill in with the ifindex of the left interface */
+
+	/* Assignment 2: fill in with the MAC address of the left inner interface */
+	unsigned char dst[ETH_ALEN] = {0x76, 0x61, 0x37, 0xd3, 0xe4, 0xef};
+	/* Assignment 2: fill in with the ifindex of the left interface */
+	unsigned ifindex = 8;
 
 	/* These keep track of the next header type and iterator pointer */
 	nh.pos = data;
@@ -151,6 +154,9 @@ int xdp_redirect_func(struct xdp_md *ctx)
 	if (eth_type == -1)
 		goto out;
 
+	/* Set a proper destination address */
+	memcpy(eth->h_dest, dst, ETH_ALEN);
+	action = bpf_redirect(ifindex, 0);
 	/* Assignment 2: set a proper destination address and call the
 	 * bpf_redirect() with proper parameters, action = bpf_redirect(...) */
 
@@ -232,6 +238,14 @@ int xdp_router_func(struct xdp_md *ctx)
 			goto out;
 
 		/* Assignment 4: fill the fib_params structure for the AF_INET case */
+		fib_params.family	= AF_INET;
+		fib_params.tos		= iph->tos;
+		fib_params.l4_protocol	= iph->protocol;
+		fib_params.sport	= 0;
+		fib_params.dport	= 0;
+		fib_params.tot_len	= bpf_ntohs(iph->tot_len);
+		fib_params.ipv4_src	= iph->saddr;
+		fib_params.ipv4_dst	= iph->daddr;
 	} else if (h_proto == bpf_htons(ETH_P_IPV6)) {
 		/* These pointers can be used to assign structures instead of executing memcpy: */
 		/* struct in6_addr *src = (struct in6_addr *) fib_params.ipv6_src; */
@@ -247,6 +261,14 @@ int xdp_router_func(struct xdp_md *ctx)
 			goto out;
 
 		/* Assignment 4: fill the fib_params structure for the AF_INET6 case */
+		fib_params.family	= AF_INET;
+		fib_params.tos		= iph->tos;
+		fib_params.l4_protocol	= iph->protocol;
+		fib_params.sport	= 0;
+		fib_params.dport	= 0;
+		fib_params.tot_len	= bpf_ntohs(iph->tot_len);
+		fib_params.ipv4_src	= iph->saddr;
+		fib_params.ipv4_dst	= iph->daddr;
 	} else {
 		goto out;
 	}
@@ -263,9 +285,9 @@ int xdp_router_func(struct xdp_md *ctx)
 
 		/* Assignment 4: fill in the eth destination and source
 		 * addresses and call the bpf_redirect_map function */
-		/* memcpy(eth->h_dest, ???, ETH_ALEN); */
-		/* memcpy(eth->h_source, ???, ETH_ALEN); */
-		/* action = bpf_redirect_map(&tx_port, ???, 0); */
+		memcpy(eth->h_dest, fib_params.dmac, ETH_ALEN);
+		memcpy(eth->h_source, fib_params.smac, ETH_ALEN);
+		action = bpf_redirect_map(&tx_port, fib_params.ifindex, 0);
 		break;
 	case BPF_FIB_LKUP_RET_BLACKHOLE:    /* dest is blackholed; can be dropped */
 	case BPF_FIB_LKUP_RET_UNREACHABLE:  /* dest is unreachable; can be dropped */
