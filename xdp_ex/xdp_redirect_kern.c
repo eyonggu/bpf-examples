@@ -204,6 +204,10 @@ static __always_inline int ip_decrease_ttl(struct iphdr *iph)
 	return --iph->ttl;
 }
 
+#define AF_INET 2
+#define AF_INET6 10
+#define IPV6_FLOWINFO_MASK bpf_htonl(0x0FFFFFFF)
+
 /* Assignment 4: Complete this router program */
 SEC("xdp_router")
 int xdp_router_func(struct xdp_md *ctx)

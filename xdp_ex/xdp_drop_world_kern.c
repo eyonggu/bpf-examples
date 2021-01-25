@@ -1,4 +1,5 @@
 #include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
 
 /*
  * Comments from Linux Kernel:
@@ -16,7 +17,8 @@
 SEC("xdp")
 int xdp_drop_the_world(struct xdp_md *ctx) {
     // drop everything
-	// 意思是无论什么网络数据包，都drop丢弃掉
+    char fmt[] = "xdp_drop_the_world, ifindex=%u\n";
+    bpf_trace_printk(fmt, sizeof(fmt), ctx->ingress_ifindex);
     return XDP_DROP;
 }
 

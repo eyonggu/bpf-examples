@@ -38,5 +38,8 @@ xdp_loader: xdp_loader_user.o $(COMMOBJS)
 xdp_stats: xdp_stats_user.o $(COMMOBJS)
 	$(CC) $^ -o $@ $(LDLIBS)
 
+xdp_redirect: xdp_redirect_user.o $(COMMOBJS)
+	$(CC) $^ -o $@ $(LDLIBS)
+
 clean:
 	rm -f $(KERNOBJS) $(COMMOBJS) $(USEROBJS) $(PROGS)
