@@ -33,5 +33,8 @@ $(USEROBJS): %.o:%.c
 sockex1: sockex1_user.o
 	$(CC) $^ -o $@ $(LDLIBS)
 
+sockmap: sockmap_user.o
+	$(CC) $^ -o $@ $(LDLIBS)
+
 clean:
 	rm -f $(KERNOBJS) $(USEROBJS) $(PROGS)
