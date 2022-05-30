@@ -23,11 +23,11 @@
 #include <poll.h>
 #include <ctype.h>
 #include <assert.h>
-#include <bpf/bpf.h>
+
+/* #include <bpf/bpf.h> */
+#include "../libbpf/src/bpf.h"
 #include "bpf_load.h"
 #include "perf-sys.h"
-
-#define DEBUGFS "/sys/kernel/debug/tracing/"
 
 static char license[128];
 static int kern_version;
@@ -685,22 +685,3 @@ int load_bpf_file_fixup_map(const char *path, fixup_map_cb fixup_map)
 	return do_load_bpf_file(path, fixup_map);
 }
 
-void read_trace_pipe(void)
-{
-	int trace_fd;
-
-	trace_fd = open(DEBUGFS "trace_pipe", O_RDONLY, 0);
-	if (trace_fd < 0)
-		return;
-
-	while (1) {
-		static char buf[4096];
-		ssize_t sz;
-
-		sz = read(trace_fd, buf, sizeof(buf) - 1);
-		if (sz > 0) {
-			buf[sz] = 0;
-			puts(buf);
-		}
-	}
-}

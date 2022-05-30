@@ -2,8 +2,12 @@
 #ifndef __BPF_LOAD_H
 #define __BPF_LOAD_H
 
-/* only used some APIs in this header file, didn't use APIs in libbpf.h */
-#include <bpf/bpf.h>
+#include <stdint.h>
+
+#define DEBUGFS "/sys/kernel/debug/tracing/"
+
+//#include <bpf/bpf.h>
+#define BPF_LOG_BUF_SIZE (UINT32_MAX >> 8)
 
 #define MAX_MAPS 32
 #define MAX_PROGS 32
@@ -54,6 +58,4 @@ extern int map_data_count;
 int load_bpf_file(char *path);
 int load_bpf_file_fixup_map(const char *path, fixup_map_cb fixup_map);
 
-void read_trace_pipe(void);
-int bpf_set_link_xdp_fd(int ifindex, int fd, __u32 flags);
 #endif

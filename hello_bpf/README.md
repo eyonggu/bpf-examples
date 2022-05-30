@@ -1,34 +1,32 @@
 # Hello BPF
 
-This is a bpf program following examples in kernel samples/bpf/,
-but it can be built out of kernel tree.
+A simple BPF program that prints a Hello message in DebugFs/trace when TracePoint `sys_enter_execve` is hit.
 
-And the loading of bpf program is done in bpf_load.c file, which is copied from kernel,
-but it has been removed since Linux 5.11, because now samples are using skeleton generated
-by bpftool.
+The loading of program is done via an old `bpf_load` source code copied from kernel, which has been removed
+from the kernel source tree since v5.11.
 
-Note also that loading can be also done via libbpf APIs (see in xdp_ex).
-
-## Precondition
-libbpf must be present.
-
-To build and install libbpf
-- git clone https://github.com/libbpf/libbpf
-- cd libbpf/src
-- make
-- make install
-
-libelf/libz, internal dependencies of libbpf, must be also installed.
-
+`bpf_load` has dependencies on `libbpf`, which is a submodule in this repo, and built libbpf.a is stored in top `lib` folder.
 
 ## Compile
+
+If libbpf is already installed on the host, it can be directly compiled:
+```sh
 make
+```
+
+Otherwise, run following commands to install libbpf header files in `include/bpf` folder.
+```sh
+cd ../
+make libbpf_install
+```
 
 ## Run
 sudo ./hello_bpf &
 
 Execute a shell command to see the print, e.g.  ls
 
+## Check the load program
+bpftool prog list
 
 ## Check bpf object file
 llvm-objdump -D hello_kern.o

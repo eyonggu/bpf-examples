@@ -20,6 +20,18 @@ git submodule update --init
 
 Refer to libbpf README file for how to compile and install
 
+To build and install libbpf
+
+```sh
+git clone https://github.com/libbpf/libbpf
+cd libbpf/src
+make
+make install
+```
+
+libelf/libz, internal dependencies of libbpf, must be also installed.
+
+
 ## Dependencies
 Main dependencies are:
 - libbpf
