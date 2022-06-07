@@ -9,16 +9,23 @@ from the kernel source tree since v5.11.
 
 ## Compile
 
-If libbpf is already installed on the host, it can be directly compiled:
+if libbpf is not installed on your host, run following commands to install libbpf header files in `include/bpf` folder.
+```sh
+make -C ../ libbpf_install
+```
+
+There are two ways to build/load bpf programs:
+- using `bpf_load` (default)
+
 ```sh
 make
 ```
+- using `bpftool gen skeleton`
 
-Otherwise, run following commands to install libbpf header files in `include/bpf` folder.
 ```sh
-cd ../
-make libbpf_install
+make USE_BPFTOOL_SKEL=1
 ```
+
 
 ## Run
 sudo ./hello_bpf &
@@ -29,4 +36,4 @@ Execute a shell command to see the print, e.g.  ls
 bpftool prog list
 
 ## Check bpf object file
-llvm-objdump -D hello_kern.o
+llvm-objdump -D hello.bpf.o

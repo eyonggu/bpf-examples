@@ -1,23 +1,26 @@
-LLC ?= llc
 CLANG ?= clang
-NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
+LLC ?= llc
 LLC_FLAGS=
+#NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
+BPFTOOL=bpftool
+EXTRA_CFLAGS=-I../include/
 
-LINUXINCLUDE = -I/usr/src/linux-source-5.4.0/usr/include
-LINUXINCLUDE += -I/usr/src/linux-source-5.4.0/tools/testing/selftests/
+PROG=kp_tcp
+OBJS=$(patsubst %.c,%.o,$(filter-out %.bpf.c,$(wildcard *.c)))
+CFLAGS = -DHAVE_ATTR_TEST=0 -I./ -I../include/ -g
+LDLIBS = -L ../lib -l:libbpf.a -lelf -lz
 
-KERNOBJS = $(patsubst %.c,%.o,$(wildcard *_kern.c))
-PROGS = $(patsubst %_user.c,%,$(wildcard *_user.c))
-OBJS = $(patsubst %.c,%.o,$(wildcard *_user.c))
-COMOBJS += ../common/bpf_load.o
-CFLAGS = -DHAVE_ATTR_TEST=0
-LDLIBS = ../lib/libbpf.a -lelf
+ifeq ($(V),1)
+    Q=
+else
+    Q=@
+endif
 
 .PHONY: all clean
 
-all: $(KERNOBJS) $(PROGS)
+all: $(PROG)
 
-$(KERNOBJS): %.o:%.c
+%.bpf.o: %.bpf.c $(wildcard %.h)
 	@echo "  CLANG-bpf " $@
 	$(Q)$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
 		-D__KERNEL__ -D__BPF_TRACING__ \
@@ -28,15 +31,21 @@ $(KERNOBJS): %.o:%.c
 		-Wno-unknown-warning-option $(CLANG_ARCH_ARGS) \
 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf $(LLC_FLAGS) -filetype=obj -o $@
 
-$(COMOBJS): %.o:%.c
-	$(CC) $(CFLAGS) -I../include -c $< -o $@
 
-#Static Pattern Rules
-$(OBJS): %.o:%.c
-	$(CC) $(CFLAGS) -I../common -c $< -o $@
+# Generate BPF skeletons
+%.skel.h: %.bpf.o
+	@echo "  BPFTOOL " $@
+	$(Q)$(BPFTOOL) gen skeleton $< > $@
 
-kp_tcp: kp_tcp_user.o $(COMOBJS)
-	$(CC) $^ -o $@ $(LDLIBS)
+$(OBJS): %.o:%.c %.skel.h
+	@echo "  CC " $@
+	$(Q)$(CC) $(CFLAGS) -c $< -o $@
+
+$(PROG): $(OBJS)
+	@echo "  LINK " $@
+	$(Q)$(CC) $^ -o $@ $(LDLIBS)
 
 clean:
-	rm -f $(KERNOBJS) $(OBJS) $(COMOBJS) $(PROGS)
+	@echo "  CLEAN "
+	$(Q)rm -f $(PROG) $(OBJS) *.bpf.o *.skel.h
+

@@ -1,29 +1,14 @@
 # bpf-examples
 
-## libbpf
-
-libbpf is a library for ease development and loading BPF programs. It is part of
-kernel tree under tools/lib/bpf, but Facebook engineers maintain a mirror on
-Github: https://github.com/libbpf/libbpf.
-
-It is added as a submodule via:
-
-```console
-git submodule add https://github.com/libbpf/libbpf/ libbpf
-```
-
-After clone this repo, you need to run the command:
-
-```console
+After cloned the repo, update the submodules first.
+```sh
 git submodule update --init
 ```
 
-Refer to libbpf README file for how to compile and install
-
-To build and install libbpf
+## libbpf
+Build and install libbpf
 
 ```sh
-git clone https://github.com/libbpf/libbpf
 cd libbpf/src
 make
 make install
@@ -31,19 +16,15 @@ make install
 
 libelf/libz, internal dependencies of libbpf, must be also installed.
 
-
-## Dependencies
-Main dependencies are:
-- libbpf
-- llvm
-- clang
-- libelf
-
 ## bpftool
+Build and install bpftool
 
-bpftool is part of Linux kernel tree under tools/bpf/bpftool. Linux distribution might
-ship the tool as a package, but it might be not the latest. A copy of the tool from
-BCC repo is stored in bin directory.
+```sh
+cd bpftool
+git submodule update --init
+cd src
+make
+```
 
 More usages, please look at Quentin Monnet's twitter: https://twitter.com/qeole/status/1101450782841466880
 

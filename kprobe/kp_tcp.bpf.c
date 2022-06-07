@@ -15,16 +15,26 @@
 #include <linux/bpf.h>
 #include <linux/version.h>
 #include <bpf/bpf_helpers.h>
-//#include <bpf/bpf_tracing.h>
+#include <bpf/bpf_tracing.h>
 
 #include "kp.h"
 
+/* Deprecated by libbpf, use new BTF-defined to declare maps below. */
 struct bpf_map_def SEC("maps") sock_est = {
 	.type = BPF_MAP_TYPE_LRU_HASH,
 	.key_size = sizeof(__u64),
 	.value_size = sizeof(struct timings),
 	.max_entries = 1024,
 };
+
+/*
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, __u64);
+	__type(value, struct timings);
+	__uint(max_entries, 1024);
+} sock_est SEC(".maps");
+*/
 
 SEC("kprobe/tcp_connect")
 int connect(struct pt_regs *ctx)

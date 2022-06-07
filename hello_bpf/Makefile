@@ -1,17 +1,14 @@
-
 CLANG ?= clang
 LLC ?= llc
-#Now assume libbpf is compiled from github mirror and installed in STD INC (/usr/include/bpf)
-#NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
 LLC_FLAGS=
+#NOSTDINC_FLAGS = -nostdinc -isystem `$(CLANG) -print-file-name=include`
 BPFTOOL=bpftool
+EXTRA_CFLAGS=-I../include/
 
 
-
-BPFOBJ=hello_kern.o
-BPFSKEL=hello_kern_skel.h
-PROG=hello_user
-USEROBJS=hello_user.o bpf_load/bpf_load.o
+PROG=hello_bpf
+OBJS=hello.o bpf_load/bpf_load.o
+SKEL=hello.skel.h
 CFLAGS=-DHAVE_ATTR_TEST=0 -I./ -I../include -I./bpf_load -I./bpf_load/include
 ifdef USE_BPFTOOL_SKEL
 CFLAGS+=-DUSE_BPFTOOL_SKEL
@@ -28,7 +25,7 @@ endif
 
 all: $(BPFOBJ) $(PROG)
 
-$(BPFOBJ): %.o:%.c
+%.bpf.o: %.bpf.c $(wildcard %.h)
 	@echo "  CLANG-bpf " $@
 	$(Q)$(CLANG) $(NOSTDINC_FLAGS) $(LINUXINCLUDE) $(EXTRA_CFLAGS) \
 		-D__KERNEL__ -D__BPF_TRACING__ \
@@ -41,24 +38,23 @@ $(BPFOBJ): %.o:%.c
 
 
 ifdef USE_BPFTOOL_SKEL
-$(BPFSKEL): $(BPFOBJ)
+$(SKEL): %.skel.h: %.bpf.o
 	@echo "  BPFTOOL " $@
 	$(Q)$(BPFTOOL) gen skeleton $< > $@
 
-$(USEROBJS): %.o:%.c $(BPFSKEL)
+$(OBJS): %.o:%.c $(SKEL)
 	@echo "  CC " $@
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
 else
-#Static Pattern Rules
-$(USEROBJS): %.o:%.c
+$(BJS): %.o:%.c
 	@echo "  CC " $@
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
 endif
 
-$(PROG): $(USEROBJS)
+$(PROG): $(OBJS)
 	@echo "  LINK " $@
 	$(Q)$(CC) $^ -o $@ $(LDLIBS)
 
 clean:
 	@echo "  CLEAN "
-	$(Q)rm -f $(BPFOBJ) $(USEROBJS) $(BPFSKEL) $(PROG)
+	$(Q)rm -f $(PROG) $(OBJS) *.bpf.o *.skel.h

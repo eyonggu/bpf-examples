@@ -6,7 +6,7 @@
 #include "bpf_load.h"
 
 #ifdef USE_BPFTOOL_SKEL
-#include "hello_kern_skel.h"
+#include "hello.skel.h"
 #endif
 
 static void read_trace_pipe(void)
@@ -32,9 +32,19 @@ static void read_trace_pipe(void)
 int main(int argc, char **argv)
 {
 #ifdef USE_BPFTOOL_SKEL
-	hello_kern__open_and_load();
+	struct hello_bpf *hello_bpf = hello_bpf__open_and_load();
+	if (!hello_bpf) {
+		printf("ERR: hello__open_and_load() failed\n");
+		return -1;
+	}
+
+	int ret = hello_bpf__attach(hello_bpf);
+	if (ret) {
+		printf("ERR: hello_bpf__attach() failed\n");
+		return ret;
+	}
 #else
-	if (load_bpf_file("hello_kern.o") != 0) {
+	if (load_bpf_file("hello.bpf.o") != 0) {
 		printf("The kernel didn't load BPF program\n");
 		return -1;
 	}

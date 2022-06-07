@@ -24,8 +24,7 @@
 #include <ctype.h>
 #include <assert.h>
 
-/* #include <bpf/bpf.h> */
-#include "../libbpf/src/bpf.h"
+#include <bpf/bpf.h>
 #include "bpf_load.h"
 #include "perf-sys.h"
 
