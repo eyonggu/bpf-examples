@@ -3,9 +3,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#ifdef USE_BPF_LOAD
 #include "bpf_load.h"
-
-#ifdef USE_BPFTOOL_SKEL
+#else
 #include "hello.skel.h"
 #endif
 
@@ -13,7 +13,7 @@ static void read_trace_pipe(void)
 {
 	int trace_fd;
 
-	trace_fd = open(DEBUGFS "trace_pipe", O_RDONLY, 0);
+	trace_fd = open("/sys/kernel/debug/tracing/trace_pipe", O_RDONLY, 0);
 	if (trace_fd < 0)
 		return;
 
@@ -31,7 +31,12 @@ static void read_trace_pipe(void)
 
 int main(int argc, char **argv)
 {
-#ifdef USE_BPFTOOL_SKEL
+#ifdef USE_BPF_LOAD
+	if (load_bpf_file("hello.bpf.o") != 0) {
+		printf("The kernel didn't load BPF program\n");
+		return -1;
+	}
+#else
 	struct hello_bpf *hello_bpf = hello_bpf__open_and_load();
 	if (!hello_bpf) {
 		printf("ERR: hello__open_and_load() failed\n");
@@ -42,11 +47,6 @@ int main(int argc, char **argv)
 	if (ret) {
 		printf("ERR: hello_bpf__attach() failed\n");
 		return ret;
-	}
-#else
-	if (load_bpf_file("hello.bpf.o") != 0) {
-		printf("The kernel didn't load BPF program\n");
-		return -1;
 	}
 #endif
 

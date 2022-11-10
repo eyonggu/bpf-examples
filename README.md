@@ -1,32 +1,5 @@
 # bpf-examples
 
-After cloned the repo, update the submodules first.
-```sh
-git submodule update --init
-```
-
-## libbpf
-Build and install libbpf
-
-```sh
-cd libbpf/src
-make
-make install
-```
-
-libelf/libz, internal dependencies of libbpf, must be also installed.
-
-## bpftool
-Build and install bpftool
-
-```sh
-cd bpftool
-git submodule update --init
-cd src
-make
-```
-
-More usages, please look at Quentin Monnet's twitter: https://twitter.com/qeole/status/1101450782841466880
 
 Some examples:
 

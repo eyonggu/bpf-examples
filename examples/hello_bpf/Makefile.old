@@ -5,10 +5,15 @@ LLC_FLAGS=
 BPFTOOL=bpftool
 EXTRA_CFLAGS=-I../include/
 
-PROG=kp_tcp
-OBJS=$(patsubst %.c,%.o,$(filter-out %.bpf.c,$(wildcard *.c)))
-CFLAGS = -DHAVE_ATTR_TEST=0 -I./ -I../include/ -g
-LDLIBS = -L ../lib -l:libbpf.a -lelf -lz
+
+PROG=hello_bpf
+OBJS=hello.o bpf_load/bpf_load.o
+SKEL=hello.skel.h
+CFLAGS=-DHAVE_ATTR_TEST=0 -I./ -I../include -I./bpf_load -I./bpf_load/include
+ifdef USE_BPFTOOL_SKEL
+CFLAGS+=-DUSE_BPFTOOL_SKEL
+endif
+LDLIBS = -L ../lib64 -l:libbpf.a -lelf -lz
 
 ifeq ($(V),1)
     Q=
@@ -18,7 +23,7 @@ endif
 
 .PHONY: all clean
 
-all: $(PROG)
+all: $(BPFOBJ) $(PROG)
 
 %.bpf.o: %.bpf.c $(wildcard %.h)
 	@echo "  CLANG-bpf " $@
@@ -32,14 +37,19 @@ all: $(PROG)
 		-O2 -emit-llvm -c $< -o -| $(LLC) -march=bpf $(LLC_FLAGS) -filetype=obj -o $@
 
 
-# Generate BPF skeletons
-%.skel.h: %.bpf.o
+ifdef USE_BPFTOOL_SKEL
+$(SKEL): %.skel.h: %.bpf.o
 	@echo "  BPFTOOL " $@
 	$(Q)$(BPFTOOL) gen skeleton $< > $@
 
-$(OBJS): %.o:%.c %.skel.h
+$(OBJS): %.o:%.c $(SKEL)
 	@echo "  CC " $@
 	$(Q)$(CC) $(CFLAGS) -c $< -o $@
+else
+$(BJS): %.o:%.c
+	@echo "  CC " $@
+	$(Q)$(CC) $(CFLAGS) -c $< -o $@
+endif
 
 $(PROG): $(OBJS)
 	@echo "  LINK " $@
@@ -48,4 +58,3 @@ $(PROG): $(OBJS)
 clean:
 	@echo "  CLEAN "
 	$(Q)rm -f $(PROG) $(OBJS) *.bpf.o *.skel.h
-

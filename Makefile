@@ -1,14 +1,59 @@
+ifeq ($(V),1)
+  Q =
+else
+  Q = @
+endif
 
-LIBBPF_INSTALL_PATH=include/bpf/
+.PHONY: all clean test
+all: $(PROG)
 
-libbpf_install:
-	@mkdir -p include/bpf
-	$(Q)cp libbpf/src/bpf.h $(LIBBPF_INSTALL_PATH)
-	$(Q)cp libbpf/src/libbpf.h $(LIBBPF_INSTALL_PATH)
-	$(Q)cp libbpf/src/bpf_helpers.h $(LIBBPF_INSTALL_PATH)
-	$(Q)cp libbpf/src/bpf_helper_defs.h $(LIBBPF_INSTALL_PATH)
-	$(Q)cp libbpf/src/bpf_tracing.h $(LIBBPF_INSTALL_PATH)
-	$(Q)cp libbpf/src/libbpf_common.h $(LIBBPF_INSTALL_PATH)
-	$(Q)cp libbpf/src/libbpf_version.h $(LIBBPF_INSTALL_PATH)
-	$(Q)cp libbpf/src/libbpf_legacy.h $(LIBBPF_INSTALL_PATH)
+_OUTPUT := $(TOPDIR)/.output
+
+#Common
+ARCH := x86
+CLANG ?= clang
+CLANG_BPF_INCLUDES=-I$(TOPDIR)/include/ -I$(TOPDIR)/vmlinux/
+
+CFLAGS = -I./ -I$(TOPDIR)/include/ -g
+LDLIBS = -L$(TOPDIR)/lib64 -l:libbpf.a -lelf -lz
+
+#LIBBPF
+LIBBPF_SRC = $(TOPDIR)/libbpf/src
+LIBBPF_OUTPUT := $(_OUTPUT)/libbpf
+LIBBPF := $(LIBBPF_OUTPUT)/libbpf.a
+
+$(LIBBPF_OUTPUT):
+	$(QUIET_MKDIR)mkdir -p $@
+
+$(LIBBPF): $(wildcard $(LIBBPF_SRC)/*.[ch] $(LIBBPF_SRC)/Makefile) | $(LIBBPF_OUTPUT)
+	$(Q)$(MAKE) -C $(LIBBPF_SRC) OBJDIR=$(patsubst %/,%,$(LIBBPF_OUTPUT)) BUILD_STATIC_ONLY=y
+	$(Q)$(MAKE) -C $(LIBBPF_SRC) PREFIX=$(TOPDIR) BUILD_STATIC_ONLY=y install
+
+#BPFTOOL
+BPFTOOL=$(TOPDIR)/bin/bpftool
+
+%.bpf.o: %.bpf.c $(wildcard %.h)
+	@echo "  CLANG-bpf " $@
+	$(Q)$(CLANG) $(CLANG_BPF_INCLUDES) -D__TARGET_ARCH_$(ARCH) -g -O2 -target bpf -c $< -o $@
+
+# Generate BPF skeletons
+%.skel.h: %.bpf.o
+	@echo "  BPFTOOL " $@
+	$(Q)$(BPFTOOL) gen skeleton $< > $@
+
+$(OBJS): %.o:%.c %.skel.h
+	@echo "  CC " $@
+	$(Q)$(CC) $(CFLAGS) -c $< -o $@
+
+$(PROG): $(OBJS) $(LIBBPF)
+	@echo "  LINK " $@
+	$(Q)$(CC) $(OBJS) -o $@ $(LDLIBS)
+
+
+clean:
+	@echo "  CLEAN "
+	$(Q)rm -f $(PROG) $(OBJS) *.bpf.o *.skel.h
+
+test:
+	$(info $(LIBBPF))
 
