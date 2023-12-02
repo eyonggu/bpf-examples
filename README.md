@@ -2,15 +2,17 @@
 
 ## Arch Linux
 
+```bash
 pacman -S clang
-pacman -S libbpf
-pacman -S bpf
+
+pacman -S libbpf bpf
 
 bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux/vmlinux.h
+```
 
 
 
-Some examples:
+## Some bpftool command examples:
 
 ```console
 bpftool prog show
