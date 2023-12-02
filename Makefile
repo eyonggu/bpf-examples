@@ -30,7 +30,8 @@ $(LIBBPF): $(wildcard $(LIBBPF_SRC)/*.[ch] $(LIBBPF_SRC)/Makefile) | $(LIBBPF_OU
 	$(Q)$(MAKE) -C $(LIBBPF_SRC) PREFIX=$(TOPDIR) BUILD_STATIC_ONLY=y install
 
 #BPFTOOL
-BPFTOOL=$(TOPDIR)/bin/bpftool
+#BPFTOOL=$(TOPDIR)/bin/bpftool
+BPFTOOL=bpftool
 
 %.bpf.o: %.bpf.c $(wildcard %.h)
 	@echo "  CLANG-bpf " $@
